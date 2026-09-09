@@ -138,6 +138,7 @@ func (app *Application) initDependencies() error {
 	// Initialize services
 	app.authService = services.NewAuthService(app.dbManager, app.config, app.logger)
 	app.userService = services.NewUserService(app.dbManager, app.logger)
+	app.logger.Info("Services initialized successfully")
 
 	// Initialize controllers
 	app.authController = auth.NewAuthController(app.authService)
