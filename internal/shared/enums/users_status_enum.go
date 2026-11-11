@@ -1,3 +1,5 @@
+package enums
+
 type UserStatus string
 
 const (

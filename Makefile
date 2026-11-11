@@ -108,3 +108,12 @@ install-tools: ## Install development tools
 ci: lint test ## Run CI checks locally
 	@echo "CI checks complete"
 
+
+messaging: ## Run the messaging engine with the NestJS settings (NestJS: DELIVERY_ENGINE=go)
+	go run ./cmd/messaging-worker -env ../backend-nestjs/.env
+
+messaging-build: ## Build the messaging engine binary
+	go build -o bin/messaging-worker ./cmd/messaging-worker
+
+messaging-test: ## Unit tests of the messaging engine (end to end: backend-nestjs test/go-engine.e2e-spec.ts)
+	go test ./internal/messaging/... -count=1
