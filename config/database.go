@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"BaseKit-with-GoLang/internal/pkg/database"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/pkg/database"
 )
 
 // DatabaseConfig holds database configuration

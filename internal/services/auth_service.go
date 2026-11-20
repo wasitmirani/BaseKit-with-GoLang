@@ -7,12 +7,12 @@ import (
 	"fmt"
 	"time"
 
-	"BaseKit-with-GoLang/internal/app/models"
-	"BaseKit-with-GoLang/internal/pkg/database"
-	"BaseKit-with-GoLang/internal/shared/logger"
-	"BaseKit-with-GoLang/internal/shared/utils"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/app/models"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/pkg/database"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/shared/logger"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/shared/utils"
 
-	"BaseKit-with-GoLang/config"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/config"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"

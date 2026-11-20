@@ -1,6 +1,6 @@
-# BaseKit with GoLang
+# LinqFlow Backend APIs (Go)
 
-A production-ready Golang starter kit built with the Gin framework. It provides clean architecture, multi-database support, daily file logging, infrastructure stubs (Redis, messaging, storage), and a GitHub Actions CI/CD pipeline.
+LinqFlow Backend APIs is a Go 1.24 service built with Gin. It provides clean architecture, multi-database support, daily file logging, messaging and storage integrations, and a GitHub Actions CI/CD pipeline.
 
 ## Features
 
@@ -16,6 +16,7 @@ A production-ready Golang starter kit built with the Gin framework. It provides 
 - **Docker & Kubernetes** — Container and K8s manifests under `deployments/`
 - **CI/CD Pipeline** — GitHub Actions for CI, CD, and releases
 - **Health Checks** — Built-in `/health` and `/ready` endpoints
+- **Video-to-Story API** — Turn public YouTube captions into an original, scene-by-scene short-form video script
 - **Graceful Shutdown** — Proper application lifecycle management
 
 ## Project Structure
@@ -92,8 +93,8 @@ A production-ready Golang starter kit built with the Gin framework. It provides 
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/wasitmirani/BaseKit-with-GoLang.git
-   cd BaseKit-with-GoLang
+   git clone https://github.com/wasitmirani/linqflow-backend-golang-apis.git
+   cd linqflow-backend-golang-apis
    ```
 
 2. **Set up environment variables**
@@ -164,7 +165,32 @@ LOG_DAILY_ROTATE=true
 LOG_MAX_SIZE=10
 LOG_MAX_BACKUPS=5
 LOG_MAX_AGE=28
+
+# Video story generation (OpenAI-compatible API)
+OPENAI_API_KEY=your-api-key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
 ```
+
+### Generate a video story
+
+`POST /api/v1/video-stories` accepts a public YouTube URL. The service reads available
+captions and uses the configured OpenAI-compatible chat-completions API to return an
+analysis and an original short-form script. Videos without accessible captions, or
+requests made without `OPENAI_API_KEY`, return an explicit error.
+
+```json
+{
+  "video_url": "https://www.youtube.com/watch?v=49_Ph2q6uIM",
+  "audience": "general audience",
+  "tone": "curious and cinematic"
+}
+```
+
+The response contains the video title, summary, key points, hook, scene-by-scene
+visuals, narration and on-screen text, plus a closing call to action. Configure
+`SERVER_WRITE_TIMEOUT` to allow time for upstream caption and AI requests; its
+default is 90 seconds.
 
 ### Logging
 

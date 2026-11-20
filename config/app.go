@@ -71,7 +71,7 @@ func loadServerConfig() ServerConfig {
 		Host:         getString("SERVER_HOST", "0.0.0.0"),
 		Mode:         getString("GIN_MODE", "debug"),
 		ReadTimeout:  getDuration("SERVER_READ_TIMEOUT", 15*time.Second),
-		WriteTimeout: getDuration("SERVER_WRITE_TIMEOUT", 15*time.Second),
+		WriteTimeout: getDuration("SERVER_WRITE_TIMEOUT", 90*time.Second),
 		IdleTimeout:  getDuration("SERVER_IDLE_TIMEOUT", 60*time.Second),
 	}
 }

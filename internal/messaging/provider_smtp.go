@@ -207,10 +207,18 @@ func (t *TokenSource) Forget(accountID string) {
 }
 
 func (t *TokenSource) Token(ctx context.Context, accountID, provider, refreshToken string) (string, error) {
+	token, _, err := t.TokenRotating(ctx, accountID, provider, refreshToken)
+	return token, err
+}
+
+// TokenRotating is Token, plus the new refresh token when the provider issued one
+// (Microsoft rotates them on every refresh; the old one expires after ~90 days, so
+// the caller must store the new one or the mailbox stops sending).
+func (t *TokenSource) TokenRotating(ctx context.Context, accountID, provider, refreshToken string) (string, string, error) {
 	t.mu.Lock()
 	if c, ok := t.cache[accountID]; ok && time.Until(c.expires) > time.Minute {
 		t.mu.Unlock()
-		return c.token, nil
+		return c.token, "", nil
 	}
 	t.mu.Unlock()
 
@@ -221,7 +229,7 @@ func (t *TokenSource) Token(ctx context.Context, accountID, provider, refreshTok
 		name, prefix = "Outlook", "MICROSOFT"
 	}
 	if id == "" || secret == "" {
-		return "", Fail("NOT_CONFIGURED", fmt.Sprintf("%s is not configured on the messaging engine (%s_OAUTH_CLIENT_ID / %s_OAUTH_CLIENT_SECRET).", name, prefix, prefix), false)
+		return "", "", Fail("NOT_CONFIGURED", fmt.Sprintf("%s is not configured on the messaging engine (%s_OAUTH_CLIENT_ID / %s_OAUTH_CLIENT_SECRET).", name, prefix, prefix), false)
 	}
 	form := url.Values{
 		"client_id":     {id},
@@ -231,17 +239,18 @@ func (t *TokenSource) Token(ctx context.Context, accountID, provider, refreshTok
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, tokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	res, err := t.client.Do(req)
 	if err != nil {
-		return "", Fail("TEMPORARY", name+" sign-in: "+err.Error(), false)
+		return "", "", Fail("TEMPORARY", name+" sign-in: "+err.Error(), false)
 	}
 	defer res.Body.Close()
 	var body struct {
-		AccessToken string `json:"access_token"`
-		ExpiresIn   int    `json:"expires_in"`
+		AccessToken  string `json:"access_token"`
+		RefreshToken string `json:"refresh_token"`
+		ExpiresIn    int    `json:"expires_in"`
 		Error       string `json:"error"`
 		Description string `json:"error_description"`
 	}
@@ -253,13 +262,17 @@ func (t *TokenSource) Token(ctx context.Context, accountID, provider, refreshTok
 		}
 		if body.Error == "invalid_grant" {
 			// Revoked or expired consent: reconnecting the account is the only fix.
-			return "", Fail("AUTH_FAILED", name+" access was revoked; reconnect the account in Channels → Email. ("+reason+")", true)
+			return "", "", Fail("AUTH_FAILED", name+" access was revoked; reconnect the account in Channels → Email. ("+reason+")", true)
 		}
-		return "", Fail("AUTH_FAILED", name+" sign-in failed: "+reason, res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != 429)
+		return "", "", Fail("AUTH_FAILED", name+" sign-in failed: "+reason, res.StatusCode >= 400 && res.StatusCode < 500 && res.StatusCode != 429)
 	}
 	expires := time.Now().Add(time.Duration(max(body.ExpiresIn, 60)) * time.Second)
 	t.mu.Lock()
 	t.cache[accountID] = cachedToken{token: body.AccessToken, expires: expires}
 	t.mu.Unlock()
-	return body.AccessToken, nil
+	rotated := ""
+	if body.RefreshToken != "" && body.RefreshToken != refreshToken {
+		rotated = body.RefreshToken
+	}
+	return body.AccessToken, rotated, nil
 }

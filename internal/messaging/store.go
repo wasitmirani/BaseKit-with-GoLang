@@ -85,7 +85,44 @@ func (s *Store) Account(ctx context.Context, tenantID, accountID string) (*Accou
 	if err := s.box.Open(*sealed, &creds); err != nil {
 		return nil, Fail("CREDENTIALS_UNREADABLE", err.Error(), true)
 	}
-	return &Account{ID: accountID, Provider: key, Label: provider, Credentials: creds}, nil
+	return &Account{ID: accountID, TenantID: tenantID, Provider: key, Label: provider, Credentials: creds}, nil
+}
+
+// SaveRefreshToken stores a rotated OAuth refresh token in the account's sealed
+// credentials (read again under a row lock, so other credential edits are kept).
+func (s *Store) SaveRefreshToken(ctx context.Context, acc *Account, refreshToken string) error {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback(ctx) //nolint:errcheck // no-op after commit
+	var sealed *string
+	err = tx.QueryRow(ctx, `
+		SELECT data->>'_credentials' FROM product_records
+		 WHERE tenant_id = $1 AND collection = 'channel-accounts' AND id = $2 FOR UPDATE`,
+		acc.TenantID, acc.ID).Scan(&sealed)
+	if errors.Is(err, pgx.ErrNoRows) || sealed == nil {
+		return nil // removed meanwhile
+	}
+	if err != nil {
+		return err
+	}
+	creds := Credentials{}
+	if err := s.box.Open(*sealed, &creds); err != nil {
+		return err
+	}
+	creds["refreshToken"] = refreshToken
+	resealed, err := s.box.Seal(creds)
+	if err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE product_records SET data = jsonb_set(data, '{_credentials}', to_jsonb($3::text)), updated_at = now()
+		 WHERE tenant_id = $1 AND collection = 'channel-accounts' AND id = $2`,
+		acc.TenantID, acc.ID, resealed); err != nil {
+		return err
+	}
+	return tx.Commit(ctx)
 }
 
 // CampaignStopped reports whether the campaign was paused or cancelled after the job was queued.

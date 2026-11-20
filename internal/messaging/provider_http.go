@@ -180,10 +180,61 @@ func sendWhatsAppText(ctx context.Context, client *http.Client, cfg *Config, c C
 	})
 }
 
+// ---------- Meta Messenger and Instagram (Page Send API) ----------
+
+func sendPageMessage(ctx context.Context, client *http.Client, cfg *Config, c Credentials, network string, r PageMessageRequest) (Result, error) {
+	body, _ := json.Marshal(map[string]any{
+		"recipient":      map[string]string{"id": r.RecipientID},
+		"messaging_type": "RESPONSE",
+		"message":        map[string]string{"text": r.Body},
+	})
+	res, err := callJSON(ctx, client, http.MethodPost,
+		cfg.MetaBase+"/"+metaGraphVersion+"/"+url.PathEscape(c["pageId"])+"/messages",
+		map[string]string{"Authorization": "Bearer " + c["pageAccessToken"], "Content-Type": "application/json"},
+		bytes.NewReader(body))
+	if err != nil {
+		return Result{}, err
+	}
+	if res.status < 200 || res.status >= 300 {
+		e, _ := res.body["error"].(map[string]any)
+		code := orDefault(str(e["code"]), fmt.Sprint(res.status))
+		sub := str(e["error_subcode"])
+		errCode := "META_" + code
+		// 10 / 2018278: outside the messaging window; 551: the person is unavailable.
+		switch {
+		case code == "10" || sub == "2018278":
+			errCode = "WINDOW_CLOSED"
+		case code == "551":
+			errCode = "BLOCKED"
+		}
+		// 4 and 613 are rate limits.
+		permanent := !retryable(res.status) && code != "4" && code != "613"
+		return Result{}, Fail(errCode, network+": "+orDefault(str(e["message"]), http.StatusText(res.status)), permanent)
+	}
+	return Result{ProviderMessageID: str(res.body["message_id"])}, nil
+}
+
 // ---------- Telegram Bot API ----------
 
 func sendTelegram(ctx context.Context, client *http.Client, cfg *Config, c Credentials, r TelegramRequest) (Result, error) {
-	body, _ := json.Marshal(map[string]string{"chat_id": r.ChatID, "text": r.Body})
+	payload := map[string]any{"chat_id": r.ChatID, "text": r.Body}
+	if r.HTML {
+		payload["parse_mode"] = "HTML"
+	}
+	if len(r.Buttons) > 0 {
+		rows := make([][]map[string]string, len(r.Buttons))
+		for i, b := range r.Buttons {
+			rows[i] = []map[string]string{{"text": b.Text, "url": b.URL}}
+		}
+		payload["reply_markup"] = map[string]any{"inline_keyboard": rows}
+	}
+	if r.DisablePreview {
+		payload["link_preview_options"] = map[string]bool{"is_disabled": true}
+	}
+	if r.Silent {
+		payload["disable_notification"] = true
+	}
+	body, _ := json.Marshal(payload)
 	res, err := callJSON(ctx, client, http.MethodPost,
 		cfg.TelegramBase+"/bot"+c["botToken"]+"/sendMessage",
 		map[string]string{"Content-Type": "application/json"}, bytes.NewReader(body))

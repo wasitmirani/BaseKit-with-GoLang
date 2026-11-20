@@ -15,7 +15,8 @@ type Credentials map[string]string
 // Account is a connected channel account with readable credentials.
 type Account struct {
 	ID          string
-	Provider    string // provider key: smtp, ses, gmail, outlook, twilio, meta_whatsapp, telegram
+	TenantID    string
+	Provider    string // provider key: smtp, ses, postal, gmail, outlook, twilio, meta_whatsapp, telegram
 	Label       string // what the UI shows, e.g. "Amazon SES"
 	Credentials Credentials
 }
@@ -31,12 +32,18 @@ func providerKey(stored string) string {
 		return "gmail"
 	case "outlook":
 		return "outlook"
+	case "postal":
+		return "postal"
 	case "twilio":
 		return "twilio"
 	case "meta_whatsapp", "meta cloud api":
 		return "meta_whatsapp"
 	case "telegram":
 		return "telegram"
+	case "meta_messenger", "meta messenger":
+		return "meta_messenger"
+	case "meta_instagram", "meta instagram":
+		return "meta_instagram"
 	}
 	return ""
 }
@@ -47,6 +54,10 @@ type Sender struct {
 	client *http.Client
 	tokens *TokenSource
 	now    func() time.Time
+	// SaveRefreshToken stores a rotated OAuth refresh token (nil: not stored).
+	SaveRefreshToken func(ctx context.Context, acc *Account, refreshToken string) error
+	// OnSaveError reports a refresh token that could not be stored.
+	OnSaveError func(acc *Account, err error)
 }
 
 func NewSender(cfg *Config) *Sender {
@@ -98,6 +109,16 @@ func (s *Sender) Send(ctx context.Context, job Job, acc *Account) (Result, error
 			return Result{}, err
 		}
 		return sendTelegram(ctx, s.client, s.cfg, acc.Credentials, r)
+	case KindMessenger, KindInstagram:
+		r, err := decode[PageMessageRequest](job.Payload)
+		if err != nil {
+			return Result{}, err
+		}
+		network := "Messenger"
+		if job.Kind == KindInstagram {
+			network = "Instagram"
+		}
+		return sendPageMessage(ctx, s.client, s.cfg, acc.Credentials, network, r)
 	}
 	return Result{}, Fail("BAD_JOB", "Unknown job kind "+job.Kind, true)
 }
@@ -112,6 +133,12 @@ func (s *Sender) sendEmail(ctx context.Context, acc *Account, r EmailRequest) (R
 	switch acc.Provider {
 	case "ses":
 		id, err := sendSES(ctx, s.client, s.cfg, c, raw)
+		if err != nil {
+			return Result{}, err
+		}
+		return Result{ProviderMessageID: id}, nil
+	case "postal":
+		id, err := sendPostal(ctx, s.client, s.cfg, c, envl, raw)
 		if err != nil {
 			return Result{}, err
 		}
@@ -134,9 +161,14 @@ func (s *Sender) sendEmail(ctx context.Context, acc *Account, r EmailRequest) (R
 		}
 		return Result{ProviderMessageID: envl.MessageID}, nil
 	case "gmail", "outlook":
-		token, err := s.tokens.Token(ctx, acc.ID, acc.Provider, c["refreshToken"])
+		token, rotated, err := s.tokens.TokenRotating(ctx, acc.ID, acc.Provider, c["refreshToken"])
 		if err != nil {
 			return Result{}, err
+		}
+		if rotated != "" && s.SaveRefreshToken != nil {
+			if err := s.SaveRefreshToken(ctx, acc, rotated); err != nil && s.OnSaveError != nil {
+				s.OnSaveError(acc, err)
+			}
 		}
 		srv := smtpServer{host: "smtp.gmail.com", port: 465, implicit: true, auth: xoauth2{user: c["email"], token: token}}
 		if acc.Provider == "outlook" {

@@ -21,7 +21,7 @@ GIN_MODE=debug
 
 # Server Timeouts (in seconds)
 SERVER_READ_TIMEOUT=15s
-SERVER_WRITE_TIMEOUT=15s
+SERVER_WRITE_TIMEOUT=90s
 SERVER_IDLE_TIMEOUT=60s
 
 # ============================================
@@ -190,6 +190,11 @@ API_RATE_LIMIT=60
 # ============================================
 # Third-Party Services (Optional)
 # ============================================
+
+# Video story generation (OpenAI-compatible API)
+OPENAI_API_KEY=
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4o-mini
 
 # Sentry Error Tracking
 SENTRY_DSN=

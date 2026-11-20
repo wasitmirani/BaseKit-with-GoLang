@@ -7,12 +7,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"BaseKit-with-GoLang/internal/app/controllers/auth"
-	"BaseKit-with-GoLang/internal/app/controllers/user"
-	"BaseKit-with-GoLang/internal/pkg/database"
-	"BaseKit-with-GoLang/internal/shared/logger"
-	"BaseKit-with-GoLang/internal/services"
-	"BaseKit-with-GoLang/config"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/config"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/app/controllers/auth"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/app/controllers/user"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/app/controllers/video_story"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/pkg/database"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/services"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/shared/logger"
 )
 
 // Application represents the main application
@@ -24,12 +25,14 @@ type Application struct {
 	dbManager *database.Manager
 
 	// Services
-	authService *services.AuthService
-	userService *services.UserService
+	authService       *services.AuthService
+	userService       *services.UserService
+	videoStoryService services.VideoStoryCreator
 
 	// Controllers
-	authController *auth.AuthController
-	userController *user.UserController
+	authController       *auth.AuthController
+	userController       *user.UserController
+	videoStoryController *video_story.Controller
 }
 
 // New creates a new Application instance
@@ -138,11 +141,13 @@ func (app *Application) initDependencies() error {
 	// Initialize services
 	app.authService = services.NewAuthService(app.dbManager, app.config, app.logger)
 	app.userService = services.NewUserService(app.dbManager, app.logger)
+	app.videoStoryService = services.NewVideoStoryService(app.config.Services.VideoStory)
 	app.logger.Info("Services initialized successfully")
 
 	// Initialize controllers
 	app.authController = auth.NewAuthController(app.authService)
 	app.userController = user.NewUserController(app.userService)
+	app.videoStoryController = video_story.NewController(app.videoStoryService, app.logger)
 
 	return nil
 }
@@ -174,6 +179,8 @@ func (app *Application) setupRoutes() {
 			usersGroup.PUT("/:id", app.userController.UpdateUser)
 			usersGroup.DELETE("/:id", app.userController.DeleteUser)
 		}
+
+		api.POST("/video-stories", app.videoStoryController.Create)
 	}
 }
 

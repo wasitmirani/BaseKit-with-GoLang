@@ -2,10 +2,18 @@ package config
 
 // ServicesConfig holds third-party and infrastructure service settings
 type ServicesConfig struct {
-	Mail     MailConfig
-	Storage  StorageConfig
-	Sentry   SentryConfig
-	NewRelic NewRelicConfig
+	Mail       MailConfig
+	Storage    StorageConfig
+	Sentry     SentryConfig
+	NewRelic   NewRelicConfig
+	VideoStory VideoStoryConfig
+}
+
+// VideoStoryConfig holds settings for video-to-story generation.
+type VideoStoryConfig struct {
+	OpenAIAPIKey  string
+	OpenAIBaseURL string
+	OpenAIModel   string
 }
 
 // MailConfig holds email/SMTP configuration
@@ -93,6 +101,11 @@ func loadServicesConfig() ServicesConfig {
 		NewRelic: NewRelicConfig{
 			LicenseKey: getString("NEW_RELIC_LICENSE_KEY", ""),
 			AppName:    getString("NEW_RELIC_APP_NAME", appName),
+		},
+		VideoStory: VideoStoryConfig{
+			OpenAIAPIKey:  getString("OPENAI_API_KEY", ""),
+			OpenAIBaseURL: getString("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+			OpenAIModel:   getString("OPENAI_MODEL", "gpt-4o-mini"),
 		},
 	}
 }

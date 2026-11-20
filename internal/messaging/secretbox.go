@@ -3,6 +3,7 @@ package messaging
 import (
 	"crypto/aes"
 	"crypto/cipher"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
@@ -31,6 +32,30 @@ func NewSecretBox(encryptionKey, jwtSecret string, production bool) (*SecretBox,
 }
 
 var errUnreadable = errors.New("unreadable secret (tampered, or SECRETS_ENCRYPTION_KEY differs from NestJS)")
+
+// Seal encrypts a JSON value in the same format as NestJS's seal().
+func (b *SecretBox) Seal(v any) (string, error) {
+	plain, err := json.Marshal(v)
+	if err != nil {
+		return "", err
+	}
+	block, err := aes.NewCipher(b.key)
+	if err != nil {
+		return "", err
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "", err
+	}
+	iv := make([]byte, 12)
+	if _, err := rand.Read(iv); err != nil {
+		return "", err
+	}
+	out := gcm.Seal(nil, iv, plain, nil)
+	body, tag := out[:len(out)-gcm.Overhead()], out[len(out)-gcm.Overhead():]
+	enc := base64.RawURLEncoding
+	return "v1:" + enc.EncodeToString(iv) + ":" + enc.EncodeToString(tag) + ":" + enc.EncodeToString(body), nil
+}
 
 // Open decrypts a sealed JSON value into out.
 func (b *SecretBox) Open(sealed string, out any) error {

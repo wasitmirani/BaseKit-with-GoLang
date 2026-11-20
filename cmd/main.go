@@ -8,9 +8,9 @@ import (
 	"syscall"
 	"time"
 
-	"BaseKit-with-GoLang/config"
-	"BaseKit-with-GoLang/internal/app"
-	"BaseKit-with-GoLang/internal/shared/logger"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/config"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/app"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/shared/logger"
 )
 
 func main() {

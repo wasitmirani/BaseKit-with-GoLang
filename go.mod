@@ -1,4 +1,4 @@
-module BaseKit-with-GoLang
+module github.com/wasitmirani/linqflow-backend-golang-apis
 
 go 1.24.0
 

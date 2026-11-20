@@ -1,0 +1,18 @@
+# Messaging worker (sends email, SMS, WhatsApp, Telegram from delivery_jobs).
+# Build: docker build -f backend-golang/Dockerfile.messaging -t app-messaging backend-golang
+FROM golang:1.24-alpine AS build
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=0 go build -ldflags="-w -s" -o /out/messaging-worker ./cmd/messaging-worker
+
+FROM alpine:3.20
+RUN apk add --no-cache ca-certificates tzdata && adduser -D -u 10001 worker
+COPY --from=build /out/messaging-worker /usr/local/bin/messaging-worker
+USER worker
+ENV MESSAGING_HTTP_ADDR=:8090
+EXPOSE 8090
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q -O /dev/null http://127.0.0.1:8090/healthz || exit 1
+ENTRYPOINT ["messaging-worker"]

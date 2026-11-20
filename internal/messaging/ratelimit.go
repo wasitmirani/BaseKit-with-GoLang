@@ -11,6 +11,7 @@ import (
 var defaultRates = map[string]float64{
 	"ses":           14, // SES sandbox and new production accounts
 	"smtp":          5,
+	"postal":        20, // self-hosted; raise with rateLimitPerSecond
 	"gmail":         1,
 	"outlook":       1,
 	"twilio":        10,

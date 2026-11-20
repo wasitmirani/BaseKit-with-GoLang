@@ -2,8 +2,8 @@
 //
 // NestJS renders each message (content, consent, plan limits) and writes one row
 // to delivery_jobs with a SendRequest in `payload`. This package claims those
-// jobs, calls the provider (SMTP, Amazon SES, Gmail, Outlook, Twilio, Meta
-// WhatsApp, Telegram), retries transient errors and records the outcome, which
+// jobs, calls the provider (SMTP, Amazon SES, Postal, Gmail, Outlook, Twilio, Meta
+// WhatsApp, Messenger, Instagram, Telegram), retries transient errors and records the outcome, which
 // NestJS applies to the message log, inbox and campaign stats.
 //
 // The payload shapes mirror `SendRequest` in
@@ -22,6 +22,8 @@ const (
 	KindWhatsAppTemplate = "whatsapp_template"
 	KindWhatsAppText     = "whatsapp_text"
 	KindTelegram         = "telegram"
+	KindMessenger        = "messenger"
+	KindInstagram        = "instagram"
 )
 
 // Job is one claimed delivery_jobs row.
@@ -78,6 +80,24 @@ type WhatsAppTextRequest struct {
 type TelegramRequest struct {
 	ChatID string `json:"chatId"`
 	Body   string `json:"body"`
+	// HTML: the body is Telegram HTML (templates with formatting).
+	HTML           bool                 `json:"html,omitempty"`
+	Buttons        []TelegramLinkButton `json:"buttons,omitempty"`
+	DisablePreview bool                 `json:"disablePreview,omitempty"`
+	Silent         bool                 `json:"silent,omitempty"`
+}
+
+// TelegramLinkButton is one inline URL button under a Telegram message.
+type TelegramLinkButton struct {
+	Text string `json:"text"`
+	URL  string `json:"url"`
+}
+
+// PageMessageRequest is text to a Messenger PSID or an Instagram-scoped id,
+// sent through the Facebook Page inside the 24-hour window.
+type PageMessageRequest struct {
+	RecipientID string `json:"recipientId"`
+	Body        string `json:"body"`
 }
 
 // Result is what a provider accepted (delivery_jobs.result on success).

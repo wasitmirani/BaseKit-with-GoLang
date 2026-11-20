@@ -21,7 +21,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/subosito/gotenv"
 
-	"BaseKit-with-GoLang/internal/messaging"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/messaging"
 )
 
 func main() {
@@ -72,7 +72,12 @@ func run(log *slog.Logger) error {
 
 	store := messaging.NewStore(pool, box)
 	metrics := messaging.NewMetrics()
-	worker := messaging.NewWorker(cfg, pool, store, messaging.NewSender(cfg), metrics, log)
+	sender := messaging.NewSender(cfg)
+	sender.SaveRefreshToken = store.SaveRefreshToken
+	sender.OnSaveError = func(acc *messaging.Account, err error) {
+		log.Error("could not store rotated refresh token; reconnect the mailbox if sending stops", "account", acc.ID, "tenant", acc.TenantID, "error", err)
+	}
+	worker := messaging.NewWorker(cfg, pool, store, sender, metrics, log)
 
 	var srv *http.Server
 	if cfg.HTTPAddr != "" {

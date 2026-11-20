@@ -3,8 +3,8 @@ package auth
 import (
 	"net/http"
 
-	"BaseKit-with-GoLang/internal/shared/errors"
-	"BaseKit-with-GoLang/internal/services"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/shared/errors"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/services"
 
 	"github.com/gin-gonic/gin"
 )

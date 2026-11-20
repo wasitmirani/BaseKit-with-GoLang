@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 
-	"BaseKit-with-GoLang/internal/app/models"
-	"BaseKit-with-GoLang/internal/pkg/database"
-	"BaseKit-with-GoLang/internal/shared/logger"
-	"BaseKit-with-GoLang/internal/shared/utils"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/app/models"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/pkg/database"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/shared/logger"
+	"github.com/wasitmirani/linqflow-backend-golang-apis/internal/shared/utils"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

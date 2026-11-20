@@ -412,3 +412,40 @@ func TestLimiter(t *testing.T) {
 		t.Fatal("rates")
 	}
 }
+
+func TestMessengerAndInstagram(t *testing.T) {
+	cfg, calls := fakeAPI(t, func(w http.ResponseWriter, c call) {
+		switch {
+		case strings.Contains(c.body, "late"):
+			w.WriteHeader(400)
+			w.Write([]byte(`{"error":{"code":10,"error_subcode":2018278,"message":"Outside the allowed window"}}`))
+		case strings.Contains(c.body, "busy"):
+			w.WriteHeader(400)
+			w.Write([]byte(`{"error":{"code":613,"message":"Calls to this api have exceeded the rate limit"}}`))
+		default:
+			w.Write([]byte(`{"recipient_id":"PSID1","message_id":"m_1"}`))
+		}
+	})
+	s := NewSender(cfg)
+	acc := &Account{ID: "p", Provider: "meta_messenger", Credentials: Credentials{"pageId": "PAGE1", "pageAccessToken": "EAAP"}}
+	r, err := s.Send(context.Background(), job(KindMessenger, PageMessageRequest{RecipientID: "PSID1", Body: "hello"}), acc)
+	if err != nil || r.ProviderMessageID != "m_1" {
+		t.Fatalf("%v %v", r, err)
+	}
+	c := (*calls)[0]
+	if c.path != "/v21.0/PAGE1/messages" || c.auth != "Bearer EAAP" ||
+		!strings.Contains(c.body, `"recipient":{"id":"PSID1"}`) || !strings.Contains(c.body, `"messaging_type":"RESPONSE"`) {
+		t.Fatalf("messenger call %+v", c)
+	}
+	_, err = s.Send(context.Background(), job(KindInstagram, PageMessageRequest{RecipientID: "IG1", Body: "too late"}), acc)
+	if f, _ := err.(*Failure); f == nil || f.Code != "WINDOW_CLOSED" || !f.Permanent || !strings.HasPrefix(f.Message, "Instagram:") {
+		t.Fatalf("window: %v", err)
+	}
+	_, err = s.Send(context.Background(), job(KindMessenger, PageMessageRequest{RecipientID: "PSID1", Body: "busy"}), acc)
+	if f, _ := err.(*Failure); f == nil || f.Permanent {
+		t.Fatalf("rate limit must be retryable: %v", err)
+	}
+	if providerKey("Meta Instagram") != "meta_instagram" || providerKey("Meta Messenger") != "meta_messenger" {
+		t.Fatal("provider labels")
+	}
+}
